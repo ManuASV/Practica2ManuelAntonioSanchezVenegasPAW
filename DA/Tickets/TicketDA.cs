@@ -5,6 +5,7 @@ using Abstracciones.Tickets;
 using DA.Comunes;
 using DA.Contexto;
 using Microsoft.EntityFrameworkCore;
+using Abstracciones.Agentes;
 
 namespace DA.Tickets;
 
@@ -132,4 +133,21 @@ public class TicketDA : ITicketDA
         _ctx.Tickets.AsNoTracking()
             .Include(t => t.Cliente)
             .Include(t => t.TicketEtiquetas).ThenInclude(te => te.Etiqueta);
+
+    public Task<int> ContarActivosDeAgenteAsync(int agenteId, CancellationToken ct) =>
+    _ctx.Tickets.Where(ReglasAgente.TicketOcupaCapacidad).CountAsync(t => t.AgenteId == agenteId, ct);
+
+    public async Task<Dictionary<int, int>> ContarActivosPorAgenteAsync(IReadOnlyCollection<int> agenteIds, CancellationToken ct)
+    {
+        var ids = agenteIds.ToList();
+        return await _ctx.Tickets.AsNoTracking()
+            .Where(ReglasAgente.TicketOcupaCapacidad)
+            .Where(t => t.AgenteId != null && ids.Contains(t.AgenteId.Value))
+            .GroupBy(t => t.AgenteId!.Value)
+            .Select(g => new { Clave = g.Key, Cantidad = g.Count() })
+            .ToDictionaryAsync(x => x.Clave, x => x.Cantidad, ct);
+    }
+
+    public Task<bool> AgenteTieneTicketsAsync(int agenteId, CancellationToken ct) =>
+        _ctx.Tickets.AnyAsync(t => t.AgenteId == agenteId, ct);
 }

@@ -37,7 +37,7 @@ public static class RegistroDA
         servicios.AddScoped<IComentarioDA, ComentarioDA>();
 
         // Módulo Agentes
-        servicios.AddScoped<IAgenteDa, AgenteDa>();
+        servicios.AddScoped<IAgenteDA, AgenteDA>();
 
         // Módulo Tickets (dos implementaciones intercambiables)
         if (ticketsEnMemoria)

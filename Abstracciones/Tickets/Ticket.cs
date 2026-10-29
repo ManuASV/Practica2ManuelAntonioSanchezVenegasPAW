@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations.Schema;
+using Abstracciones.Agentes;
 using Abstracciones.Clientes;
 using Abstracciones.Comentarios;
 using Abstracciones.Etiquetas;
@@ -18,7 +18,7 @@ public class Ticket
     public PrioridadTicket Prioridad { get; set; }
     public EstadoTicket Estado { get; set; }
     public int ClienteId { get; set; }
-    [ForeignKey("AgenteId")]
+    
     public int? AgenteId { get; set; }
     public int Reaperturas { get; set; }
     public DateTime FechaCreacion { get; set; }
@@ -28,4 +28,5 @@ public class Ticket
     public Cliente? Cliente { get; set; }                                   // N-1
     public List<Comentario> Comentarios { get; set; } = new();              // 1-N
     public List<TicketEtiqueta> TicketEtiquetas { get; set; } = new();      // N-M con entidad intermedia
+    public Agente? Agente { get; set; }
 }

@@ -1,10 +1,13 @@
+using Abstracciones.Comunes;
+
 namespace Abstracciones.Agentes;
 
-public interface IAgenteDa
+public interface IAgenteDA
 {
-    Task<AgenteDto> Crear(AgenteCrearDto agente);
-    Task<bool> Actualizar(int id, AgenteActualizarDto agente);
-    Task<AgenteDto> ObtenerPorId(int id);
-    Task<List<AgenteDto>> ObtenerTodos();
-    Task<bool> Eliminar(int id);
+    Task<ResultadoPaginado<Agente>> BuscarAsync(AgenteFiltro filtro, CancellationToken ct);
+    Task<Agente?> ObtenerPorIdAsync(int id, CancellationToken ct);
+    Task<Agente?> ObtenerPorCorreoAsync(string correo, CancellationToken ct);
+    Task<Agente> AgregarAsync(Agente agente, CancellationToken ct);
+    Task<bool> ActualizarAsync(Agente datos, CancellationToken ct);
+    Task<bool> EliminarAsync(int id, CancellationToken ct);
 }

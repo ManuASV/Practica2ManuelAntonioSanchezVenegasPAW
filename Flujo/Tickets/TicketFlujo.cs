@@ -3,6 +3,7 @@ using Abstracciones.Comunes;
 using Abstracciones.Etiquetas;
 using Abstracciones.Excepciones;
 using Abstracciones.Tickets;
+using Abstracciones.Agentes;
 
 namespace Flujo.Tickets;
 
@@ -24,13 +25,15 @@ public class TicketFlujo : ITicketFlujo
 
     private readonly ITicketDA _da;
     private readonly IClienteDA _clienteDA;
+    private readonly IAgenteDA _agenteDA;
     private readonly IEtiquetaDA _etiquetaDA;
     private readonly TimeProvider _reloj;
 
-    public TicketFlujo(ITicketDA da, IClienteDA clienteDA, IEtiquetaDA etiquetaDA, TimeProvider reloj)
+    public TicketFlujo(ITicketDA da, IClienteDA clienteDA, IAgenteDA agenteDA, IEtiquetaDA etiquetaDA, TimeProvider reloj)
     {
         _da = da;
         _clienteDA = clienteDA;
+        _agenteDA = agenteDA;
         _etiquetaDA = etiquetaDA;
         _reloj = reloj;
     }
@@ -101,7 +104,9 @@ public class TicketFlujo : ITicketFlujo
         // Se valida con los valores FINALES (los del body si vienen, si no los actuales).
         if (nuevoEstado == EstadoTicket.Resuelto && prioridad == PrioridadTicket.Critica && agente is null)
             throw new ConflictoException("Un ticket de prioridad Crítica no puede pasar a Resuelto sin agente asignado.");
-
+        
+        if (agente is not null)
+            await ValidarAgenteAsync(ticket, agente.Value, nuevoEstado, ct);
         // Todas las validaciones pasaron: recién ahora se modifica el objeto.
         if (ticket.Estado == EstadoTicket.Resuelto && nuevoEstado == EstadoTicket.EnProceso)
             ticket.Reaperturas++;
@@ -113,6 +118,26 @@ public class TicketFlujo : ITicketFlujo
 
         await _da.GuardarCambiosAsync(ct);
         return await ObtenerAsync(id, ct);
+    }
+
+    private async Task ValidarAgenteAsync(Ticket ticket, int agenteId, EstadoTicket nuevoEstado, CancellationToken ct)
+    {
+        var agente = await _agenteDA.ObtenerPorIdAsync(agenteId, ct)
+            ?? throw new ValidacionNegocioException($"El agente {agenteId} no existe.");
+
+        var cambiaDeAgente = ticket.AgenteId != agenteId;
+
+        if (cambiaDeAgente && !agente.Activo)
+            throw new ConflictoException($"El agente {agenteId} está inactivo y no puede recibir tickets.");
+
+        var yaOcupabaCupo = !cambiaDeAgente && ReglasAgente.EstadoOcupaCapacidad(ticket.Estado);
+        var ocuparaCupo = ReglasAgente.EstadoOcupaCapacidad(nuevoEstado);
+        if (!ocuparaCupo || yaOcupabaCupo) return;
+
+        var activos = await _da.ContarActivosDeAgenteAsync(agenteId, ct);
+        if (activos >= agente.CapacidadMaxima)
+            throw new ConflictoException(
+                $"El agente {agenteId} ya tiene {activos} tickets activos (capacidad máxima: {agente.CapacidadMaxima}).");
     }
 
     public async Task<TicketDto> ReabrirAsync(int id, CancellationToken ct)

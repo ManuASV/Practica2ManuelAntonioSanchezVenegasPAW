@@ -4,6 +4,7 @@ using Abstracciones.Etiquetas;
 using Abstracciones.Tickets;
 using DA.Contexto;
 using Microsoft.EntityFrameworkCore;
+using Abstracciones.Agentes;
 
 namespace DA.Semilla;
 
@@ -57,6 +58,7 @@ public class SemillaDatos
         };
         _ctx.Clientes.AddRange(clientes);
 
+
         var etiquetas = new[]
         {
             new Etiqueta { Nombre = "Facturación", Color = "#0d6efd" },
@@ -66,6 +68,14 @@ public class SemillaDatos
             new Etiqueta { Nombre = "Rendimiento", Color = "#6f42c1" },
             new Etiqueta { Nombre = "Consulta", Color = "#6c757d" }
         };
+
+        var agentes = new[]
+{
+        NuevoAgente("Valeria Jiménez", "valeria@soporte.com", "87770001", 20),
+        NuevoAgente("Andrés Quesada", "andres@soporte.com", "87770002", 30),
+        NuevoAgente("Daniela Brenes", "daniela@soporte.com", "87770003", 50)
+   };
+        _ctx.Agentes.AddRange(agentes);
         _ctx.Etiquetas.AddRange(etiquetas);
         await _ctx.SaveChangesAsync(ct); // aquí se generan los Id
 
@@ -93,7 +103,7 @@ public class SemillaDatos
                 Prioridad = prioridad,
                 Estado = estado,
                 ClienteId = clientes[azar.Next(clientes.Length)].Id,
-                AgenteId = estado == EstadoTicket.Abierto ? null : azar.Next(1, 4),
+                AgenteId = estado == EstadoTicket.Abierto ? null : agentes[azar.Next(1, 4) - 1].Id,
                 FechaCreacion = creado,
                 FechaActualizacion = creado
             };
@@ -138,6 +148,16 @@ public class SemillaDatos
             Telefono = telefono,
             Empresa = empresa,
             FechaRegistro = ahora
+        };
+
+        Agente NuevoAgente(string nombre, string correo, string telefono, int capacidad) => new()
+        {
+            Nombre = nombre,
+            Correo = correo,
+            Telefono = telefono,
+            CapacidadMaxima = capacidad,
+            Activo = true,
+            FechaIngreso = ahora
         };
     }
 }

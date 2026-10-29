@@ -1,97 +1,107 @@
 using Abstracciones.Agentes;
+using Abstracciones.Comunes;
+using Abstracciones.Excepciones;
+using DA.Comunes;
 using DA.Contexto;
 using Microsoft.EntityFrameworkCore;
 
 namespace DA.Agentes;
 
-public class AgenteDa : IAgenteDa
+public class AgenteDA : IAgenteDA
 {
     private readonly SistemaSoporteContexto _ctx;
 
-    public AgenteDa(SistemaSoporteContexto ctx)
-    {
-        _ctx = ctx;
-    }
+    public AgenteDA(SistemaSoporteContexto ctx) => _ctx = ctx;
 
-    public async Task<AgenteDto> Crear(AgenteCrearDto agente)
+    public async Task<ResultadoPaginado<Agente>> BuscarAsync(AgenteFiltro filtro, CancellationToken ct)
     {
-        var nuevoAgente = new Agente
+        IQueryable<Agente> consulta = _ctx.Agentes.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(filtro.Q))
         {
-            Nombre = agente.Nombre,
-            Correo = agente.Correo,
-            Telefono = agente.Telefono,
-            CantidadTickets = agente.CantidadTickets,
-            Activo = true,
-            FechaCreacion = DateTime.Now
+            var texto = filtro.Q.Trim();
+            consulta = consulta.Where(a => a.Nombre.Contains(texto) || a.Correo.Contains(texto));
+        }
+
+        if (filtro.Activo.HasValue)
+        {
+            var activo = filtro.Activo.Value;
+            consulta = consulta.Where(a => a.Activo == activo);
+        }
+
+        var total = await consulta.CountAsync(ct);
+
+        var items = await consulta
+            .OrderBy(a => a.Nombre).ThenBy(a => a.Id)
+            .Skip((filtro.Pagina - 1) * filtro.Tamano)
+            .Take(filtro.Tamano)
+            .ToListAsync(ct);
+
+        return new ResultadoPaginado<Agente>
+        {
+            Items = items,
+            Total = total,
+            Pagina = filtro.Pagina,
+            Tamano = filtro.Tamano
         };
-
-        _ctx.Agentes.Add(nuevoAgente);
-        await _ctx.SaveChangesAsync();
-
-        return ConvertirADto(nuevoAgente);
     }
 
-    public async Task<bool> Actualizar(int id, AgenteActualizarDto agente)
+    public Task<Agente?> ObtenerPorIdAsync(int id, CancellationToken ct) =>
+        _ctx.Agentes.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
+
+    public Task<Agente?> ObtenerPorCorreoAsync(string correo, CancellationToken ct) =>
+        _ctx.Agentes.AsNoTracking().FirstOrDefaultAsync(a => a.Correo == correo, ct);
+
+    public async Task<Agente> AgregarAsync(Agente agente, CancellationToken ct)
     {
-        var existente = await _ctx.Agentes
-            .FirstOrDefaultAsync(a => a.AgenteId == id);
+        _ctx.Agentes.Add(agente);
+        try
+        {
+            await _ctx.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ErroresSql.EsDuplicado(ex))
+        {
+            throw new ConflictoException($"Ya existe un agente con el correo '{agente.Correo}'.");
+        }
+        return agente;
+    }
 
-        if (existente is null)
-            return false;
+    public async Task<bool> ActualizarAsync(Agente datos, CancellationToken ct)
+    {
+        var existente = await _ctx.Agentes.FirstOrDefaultAsync(a => a.Id == datos.Id, ct);
+        if (existente is null) return false;
 
-        existente.Nombre = agente.Nombre;
-        existente.Correo = agente.Correo;
-        existente.Telefono = agente.Telefono;
-        existente.CantidadTickets = agente.CantidadTickets;
+        existente.Nombre = datos.Nombre;
+        existente.Correo = datos.Correo;
+        existente.Telefono = datos.Telefono;
+        existente.CapacidadMaxima = datos.CapacidadMaxima;
+        existente.Activo = datos.Activo;
 
-        await _ctx.SaveChangesAsync();
-
+        try
+        {
+            await _ctx.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ErroresSql.EsDuplicado(ex))
+        {
+            throw new ConflictoException($"Ya existe otro agente con el correo '{datos.Correo}'.");
+        }
         return true;
     }
 
-    public async Task<AgenteDto> ObtenerPorId(int id)
+    public async Task<bool> EliminarAsync(int id, CancellationToken ct)
     {
-        var agente = await _ctx.Agentes
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.AgenteId == id);
+        var existente = await _ctx.Agentes.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (existente is null) return false;
 
-        if (agente is null)
-            return null!;
-
-        return ConvertirADto(agente);
-    }
-
-    public async Task<List<AgenteDto>> ObtenerTodos()
-    {
-        var agentes = await _ctx.Agentes
-            .AsNoTracking()
-            .OrderBy(a => a.Nombre)
-            .ToListAsync();
-
-        return agentes.Select(ConvertirADto).ToList();
-    }
-
-    public async Task<bool> Eliminar(int id)
-    {
-        var agente = await _ctx.Agentes
-            .FirstOrDefaultAsync(a => a.AgenteId == id);
-
-        if (agente is null)
-            return false;
-
-        _ctx.Agentes.Remove(agente);
-        await _ctx.SaveChangesAsync();
-
+        _ctx.Agentes.Remove(existente);
+        try
+        {
+            await _ctx.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ErroresSql.EsLlaveForanea(ex))
+        {
+            throw new ConflictoException("El agente tiene tickets asociados y no se puede eliminar.");
+        }
         return true;
-    }
-
-    private static AgenteDto ConvertirADto(Agente agente)
-    {
-        return new AgenteDto(
-            agente.Nombre,
-            agente.Correo,
-            agente.Telefono,
-            agente.CantidadTickets
-        );
     }
 }

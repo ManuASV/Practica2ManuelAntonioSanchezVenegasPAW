@@ -1,3 +1,4 @@
+using Abstracciones.Agentes;
 using Abstracciones.Comunes;
 using Abstracciones.Tickets;
 
@@ -126,4 +127,25 @@ public class TicketDAMemoria : ITicketDA
 
     public Task<bool> QuitarEtiquetaAsync(int ticketId, int etiquetaId, DateTime fecha, CancellationToken ct) =>
         throw new NotSupportedException("Las etiquetas requieren Almacenamiento:Tickets = Sql.");
+
+    public Task<int> ContarActivosDeAgenteAsync(int agenteId, CancellationToken ct)
+    {
+        lock (_candado)
+            return Task.FromResult(_tickets.AsQueryable().Where(ReglasAgente.TicketOcupaCapacidad).Count(t => t.AgenteId == agenteId));
+    }
+
+    public Task<Dictionary<int, int>> ContarActivosPorAgenteAsync(IReadOnlyCollection<int> agenteIds, CancellationToken ct)
+    {
+        lock (_candado)
+            return Task.FromResult(_tickets.AsQueryable()
+                .Where(ReglasAgente.TicketOcupaCapacidad)
+                .Where(t => t.AgenteId != null && agenteIds.Contains(t.AgenteId.Value))
+                .GroupBy(t => t.AgenteId!.Value)
+                .ToDictionary(g => g.Key, g => g.Count()));
+    }
+
+    public Task<bool> AgenteTieneTicketsAsync(int agenteId, CancellationToken ct)
+    {
+        lock (_candado) return Task.FromResult(_tickets.Any(t => t.AgenteId == agenteId));
+    }
 }

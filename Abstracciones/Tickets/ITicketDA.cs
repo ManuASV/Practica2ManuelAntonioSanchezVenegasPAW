@@ -27,6 +27,10 @@ public interface ITicketDA
     Task<Dictionary<EstadoTicket, int>> ContarPorEstadoAsync(CancellationToken ct);
     Task<Dictionary<PrioridadTicket, int>> ContarPorPrioridadAsync(CancellationToken ct);
 
+    Task<int> ContarActivosDeAgenteAsync(int agenteId, CancellationToken ct);
+    Task<Dictionary<int, int>> ContarActivosPorAgenteAsync(IReadOnlyCollection<int> agenteIds, CancellationToken ct);
+    Task<bool> AgenteTieneTicketsAsync(int agenteId, CancellationToken ct);
+
     /// <summary>Devuelve false si la etiqueta ya estaba asignada.</summary>
     Task<bool> AsignarEtiquetaAsync(int ticketId, int etiquetaId, DateTime fecha, CancellationToken ct);
 

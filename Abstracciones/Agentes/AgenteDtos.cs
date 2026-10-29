@@ -1,13 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using Abstracciones.Comunes;
 
 namespace Abstracciones.Agentes;
-
-public record AgenteDto(
-    string Nombre,
-    string Correo,
-    string Telefono,
-    int CantidadTickets
-);
 
 public class AgenteCrearDto
 {
@@ -24,8 +18,28 @@ public class AgenteCrearDto
     [RegularExpression(@"^\d{8}$", ErrorMessage = "El teléfono debe tener exactamente 8 dígitos.")]
     public string Telefono { get; set; } = string.Empty;
 
-    [Range(0, 50, ErrorMessage = "La cantidad de tickets debe estar entre 0 y 50")]
-    public int CantidadTickets { get; set; } = 0;
+    [Range(1, ReglasAgente.CapacidadMaximaPermitida, ErrorMessage = "La capacidad máxima debe estar entre 1 y 50.")]
+    public int CapacidadMaxima { get; set; } = ReglasAgente.CapacidadMaximaPermitida;
+
+    public bool Activo { get; set; } = true;
 }
 
 public class AgenteActualizarDto : AgenteCrearDto { }
+
+public record AgenteDto(
+    int Id,
+    string Nombre,
+    string Correo,
+    string Telefono,
+    int CapacidadMaxima,
+    bool Activo,
+    DateTime FechaIngreso,
+    int TicketsActivos);
+
+public class AgenteFiltro : ParametrosPaginacion
+{
+    [StringLength(100)]
+    public string? Q { get; set; }
+
+    public bool? Activo { get; set; }
+}
