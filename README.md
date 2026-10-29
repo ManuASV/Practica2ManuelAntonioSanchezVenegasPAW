@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SistemaSoporte (referencia Semana 8)
 
 API de soporte con 4 capas (.NET 10): `Abstracciones`, `DA`, `Flujo`, `API`, más `Pruebas`.
@@ -38,3 +39,7 @@ API  ->  Flujo  ->  Abstracciones  <-  DA
 ```
 
 Documento completo: `Arquitectura-4-capas-SistemaSoporte.md`.
+=======
+# Practica2ManuelAntonioSanchezVenegasPAW
+Practica2ManuelAntonioSanchezVenegasPAW
+origin/main
